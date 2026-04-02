@@ -1,865 +1,1371 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#000000">
-    <meta name="description" content="State-of-the-art cinematic fireworks with HDR bloom, rocket trails, and advanced particle physics">
-    <link rel="manifest" href="manifest.json">
-    <title>Midas Fireworks - ENHANCED</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            width: 100%;
-            height: 100vh;
-            overflow: hidden;
-            background: #000;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        #canvasContainer {
-            position: relative;
-            width: 100%;
-            height: 100%;
-        }
-        canvas {
-            position: absolute;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        #starfield { z-index: 1; }
-        #mainCanvas { z-index: 2; }
-        #bloomCanvas { z-index: 3; }
-
-        #overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 100%);
-            color: #fff;
-            padding: 25px 35px;
-            font-size: 14px;
-            z-index: 100;
-            transition: opacity 0.5s, transform 0.5s;
-            backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        #overlay.hidden {
-            opacity: 0;
-            transform: translateY(-100%);
-            pointer-events: none;
-        }
-        #overlay h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #FFD700, #FFA500, #FF6347);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-        #overlay p {
-            margin: 5px 0;
-            opacity: 0.95;
-            font-size: 13px;
-        }
-        #overlay .controls {
-            margin-top: 15px;
-            font-size: 11px;
-            opacity: 0.75;
-            line-height: 1.8;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            padding-top: 12px;
-        }
-        #stats {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            color: #0f0;
-            padding: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            border-radius: 5px;
-            z-index: 99;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0,255,0,0.2);
-        }
-        #stats.hidden { display: none; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDAS FIREWORKS — ULTRA</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:100%;height:100vh;overflow:hidden;background:#000;font-family:'Segoe UI',system-ui,sans-serif;cursor:crosshair}
+canvas{display:block;width:100%;height:100%}
+#ui{position:fixed;top:0;left:0;right:0;z-index:10;padding:20px 28px;background:linear-gradient(180deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.6) 70%,transparent);backdrop-filter:blur(20px);transition:opacity .6s,transform .6s;border-bottom:1px solid rgba(255,255,255,.06)}
+#ui.hidden{opacity:0;transform:translateY(-100%);pointer-events:none}
+#ui h1{font-size:22px;font-weight:800;letter-spacing:2px;margin-bottom:8px;background:linear-gradient(90deg,#FFD700,#FF6B35,#FF2D87,#A855F7,#06B6D4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-transform:uppercase;animation:shimmer 4s ease-in-out infinite}
+@keyframes shimmer{0%,100%{filter:hue-rotate(0deg)}50%{filter:hue-rotate(30deg)}}
+#ui .info{color:rgba(255,255,255,.85);font-size:12px;line-height:2;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:2px 20px}
+#ui .info span{color:#FFD700;font-weight:600}
+#ui .keys{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);font-size:10.5px;line-height:2;letter-spacing:.3px}
+#ui .keys kbd{background:rgba(255,255,255,.1);padding:1px 6px;border-radius:3px;font-family:inherit;font-size:10px;border:1px solid rgba(255,255,255,.15)}
+#stats{position:fixed;bottom:12px;right:12px;z-index:10;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);color:#0f0;padding:10px 14px;font:11px/1.6 'Courier New',monospace;border-radius:6px;border:1px solid rgba(0,255,0,.15);display:none}
+#mode{position:fixed;bottom:12px;left:12px;z-index:10;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);color:#fff;padding:8px 14px;font:11px/1.6 'Segoe UI',system-ui,sans-serif;border-radius:6px;border:1px solid rgba(255,255,255,.1);display:none}
+#flash{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .05s}
+</style>
 </head>
 <body>
-    <div id="canvasContainer">
-        <canvas id="starfield"></canvas>
-        <canvas id="mainCanvas"></canvas>
-        <canvas id="bloomCanvas"></canvas>
-    </div>
+<canvas id="c"></canvas>
+<div id="flash"></div>
 
-    <div id="overlay">
-        <h1>🎆 MIDAS FIREWORKS - CINEMATIC EDITION</h1>
-        <p id="themeText">Theme: Classic</p>
-        <p id="intensityText">Intensity: 100 particles</p>
-        <p id="soundText">Sound: ON</p>
-        <p id="burstText">Burst Types: All (8 varieties)</p>
-        <div class="controls">
-            🎨 <strong>↑/↓:</strong> Change theme (10 themes) |
-            💥 <strong>←/→:</strong> Adjust intensity (20-300) |
-            🔊 <strong>M:</strong> Toggle sound |
-            📊 <strong>S:</strong> Toggle stats |
-            ℹ️ <strong>H:</strong> Toggle help<br>
-            🎯 <strong>CLICK:</strong> Launch firework |
-            🖥️ <strong>F:</strong> Fullscreen |
-            <strong>ESC:</strong> Exit fullscreen
-        </div>
-    </div>
+<div id="ui">
+  <h1>🎆 MIDAS FIREWORKS — ULTRA ENGINE</h1>
+  <div class="info">
+    <div>Theme: <span id="tTheme">Ethereal Gold</span></div>
+    <div>Intensity: <span id="tInt">150</span> particles</div>
+    <div>Sound: <span id="tSnd">ON</span></div>
+    <div>Burst Types: <span id="tBurst">16 varieties</span></div>
+    <div>Show Mode: <span id="tMode">Auto Choreography</span></div>
+    <div>Post-FX: <span id="tFX">Bloom + CA + HDR</span></div>
+  </div>
+  <div class="keys">
+    <kbd>↑</kbd><kbd>↓</kbd> Theme &nbsp;
+    <kbd>←</kbd><kbd>→</kbd> Intensity &nbsp;
+    <kbd>M</kbd> Sound &nbsp;
+    <kbd>S</kbd> Stats &nbsp;
+    <kbd>H</kbd> HUD &nbsp;
+    <kbd>F</kbd> Fullscreen &nbsp;
+    <kbd>B</kbd> Bloom &nbsp;
+    <kbd>G</kbd> God-rays &nbsp;
+    <kbd>R</kbd> Reflections &nbsp;
+    <kbd>1-5</kbd> Show Mode &nbsp;
+    <kbd>Click</kbd> Launch &nbsp;
+    <kbd>Space</kbd> Grand Finale
+  </div>
+</div>
 
-    <div id="stats" class="hidden">
-        <div>FPS: <span id="fps">60</span></div>
-        <div>Particles: <span id="particleCount">0</span></div>
-        <div>Rockets: <span id="rocketCount">0</span></div>
-        <div>Bursts: <span id="burstCount">0</span></div>
-    </div>
+<div id="stats">
+  <div>FPS: <span id="sFps">0</span></div>
+  <div>Particles: <span id="sPart">0</span></div>
+  <div>Draw Calls: <span id="sDraw">0</span></div>
+  <div>GPU Bloom: <span id="sBloom">ON</span></div>
+</div>
 
-    <script>
-        // ============================================
-        // CINEMATIC FIREWORKS ENGINE
-        // State-of-the-art particle system with HDR bloom
-        // ============================================
+<div id="mode"></div>
 
-        const starCanvas = document.getElementById('starfield');
-        const mainCanvas = document.getElementById('mainCanvas');
-        const bloomCanvas = document.getElementById('bloomCanvas');
-        const starCtx = starCanvas.getContext('2d');
-        const mainCtx = mainCanvas.getContext('2d');
-        const bloomCtx = bloomCanvas.getContext('2d');
-        const overlay = document.getElementById('overlay');
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  MIDAS FIREWORKS — ULTRA ENGINE
+//  WebGL2 GPU-Accelerated • Physically-Based Bloom • HDR Pipeline
+//  Chromatic Aberration • City Skyline • Water Reflections
+//  16 Burst Types • Multi-Shell • Procedural Audio w/ Reverb
+//  Auto-Choreography • Grand Finale Mode
+// ═══════════════════════════════════════════════════════════════
 
-        let width, height;
-        let particles = [];
-        let rockets = [];
-        let smoke = [];
-        let stars = [];
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: false });
+if (!gl) { document.body.innerHTML = '<h1 style="color:#fff;padding:40px">WebGL2 required</h1>'; throw 'No WebGL2'; }
 
-        // Physics
-        const GRAVITY = 0.12;
-        const AIR_RESISTANCE = 0.998;
-        const ROCKET_THRUST = -8;
-        const SMOKE_DRIFT = 0.02;
+// ─── Constants ───
+const MAX_PARTICLES = 80000;
+const MAX_ROCKETS = 60;
+const GRAVITY = 0.0018;
+const AIR_DRAG = 0.997;
+const PI2 = Math.PI * 2;
 
-        // Settings
-        let burstIntensity = 100;
-        const MIN_INTENSITY = 20;
-        const MAX_INTENSITY = 300;
-        let soundEnabled = true;
-        let showStats = false;
-        let showOverlay = true;
-        let lastInputTime = Date.now();
-        let audioCtx = null;
+// ─── State ───
+let W, H, dpr;
+let particles = [], rockets = [], smokeParticles = [];
+let frameCount = 0, lastTime = 0, deltaTime = 0, fps = 0, fpsFrames = 0, fpsTime = 0;
+let drawCalls = 0;
 
-        // Performance tracking
-        let frameCount = 0;
-        let lastFpsUpdate = Date.now();
-        let currentFps = 60;
+// Settings
+let settings = {
+  theme: 0, intensity: 150, sound: true, stats: false, hud: true,
+  bloom: true, chromatic: true, godRays: true, reflections: true,
+  showMode: 0, wind: 0, shake: 0
+};
 
-        // ============================================
-        // COLOR THEMES - 10 GORGEOUS PALETTES
-        // ============================================
-        const themes = [
-            {
-                name: 'Classic',
-                colors: [
-                    { r: 255, g: 0, b: 0 },
-                    { r: 255, g: 255, b: 0 },
-                    { r: 255, g: 255, b: 255 },
-                    { r: 0, g: 128, b: 255 }
-                ]
-            },
-            {
-                name: 'Neon Dreams',
-                colors: [
-                    { r: 255, g: 0, b: 255 },
-                    { r: 0, g: 255, b: 255 },
-                    { r: 255, g: 128, b: 255 },
-                    { r: 128, g: 255, b: 0 }
-                ]
-            },
-            {
-                name: 'Aurora Borealis',
-                colors: [
-                    { r: 0, g: 255, b: 128 },
-                    { r: 128, g: 0, b: 255 },
-                    { r: 0, g: 255, b: 255 },
-                    { r: 255, g: 255, b: 255 }
-                ]
-            },
-            {
-                name: 'Ocean Depths',
-                colors: [
-                    { r: 0, g: 100, b: 200 },
-                    { r: 0, g: 200, b: 255 },
-                    { r: 100, g: 255, b: 255 },
-                    { r: 255, g: 255, b: 255 }
-                ]
-            },
-            {
-                name: 'Sunset Fire',
-                colors: [
-                    { r: 255, g: 100, b: 0 },
-                    { r: 255, g: 50, b: 50 },
-                    { r: 255, g: 200, b: 0 },
-                    { r: 255, g: 0, b: 100 }
-                ]
-            },
-            {
-                name: 'Emerald Forest',
-                colors: [
-                    { r: 0, g: 255, b: 0 },
-                    { r: 0, g: 255, b: 128 },
-                    { r: 128, g: 255, b: 128 },
-                    { r: 255, g: 255, b: 200 }
-                ]
-            },
-            {
-                name: 'Royal Gold',
-                colors: [
-                    { r: 255, g: 215, b: 0 },
-                    { r: 255, g: 165, b: 0 },
-                    { r: 255, g: 255, b: 200 },
-                    { r: 255, g: 255, b: 255 }
-                ]
-            },
-            {
-                name: 'Galaxy Nebula',
-                colors: [
-                    { r: 138, g: 43, b: 226 },
-                    { r: 255, g: 20, b: 147 },
-                    { r: 0, g: 191, b: 255 },
-                    { r: 255, g: 105, b: 180 }
-                ]
-            },
-            {
-                name: 'Patriotic USA',
-                colors: [
-                    { r: 255, g: 0, b: 0 },
-                    { r: 255, g: 255, b: 255 },
-                    { r: 0, g: 0, b: 255 },
-                    { r: 255, g: 255, b: 255 }
-                ]
-            },
-            {
-                name: 'Sakura Dreams',
-                colors: [
-                    { r: 255, g: 182, b: 193 },
-                    { r: 255, g: 105, b: 180 },
-                    { r: 255, g: 255, b: 255 },
-                    { r: 255, g: 192, b: 203 }
-                ]
-            }
-        ];
-        let themeIndex = 0;
+// ─── Themes ───
+const themes = [
+  { name:'Ethereal Gold', colors:[[1,.84,0],[1,.5,0],[1,.9,.5],[1,1,.8],[.9,.7,.2]] },
+  { name:'Neon Cyber', colors:[[1,0,1],[0,1,1],[1,.5,1],[.5,1,0],[0,.5,1]] },
+  { name:'Aurora Dreams', colors:[[0,1,.5],[.5,0,1],[0,1,1],[.2,1,.8],[.7,.3,1]] },
+  { name:'Blood Moon', colors:[[1,0,0],[1,.2,0],[.8,0,.1],[1,.4,.1],[1,.1,.2]] },
+  { name:'Ocean Abyss', colors:[[0,.4,.8],[0,.8,1],[.4,1,1],[0,.2,.6],[.2,.6,1]] },
+  { name:'Sakura Petals', colors:[[1,.71,.76],[1,.41,.71],[1,.75,.8],[1,.85,.9],[.95,.5,.65]] },
+  { name:'Emerald Fire', colors:[[0,1,0],[0,1,.5],[.5,1,.5],[.2,.8,.2],[.6,1,.3]] },
+  { name:'Galaxy Nebula', colors:[[.54,.17,.89],[1,.08,.58],[0,.75,1],[1,.41,.71],[.6,.2,.8]] },
+  { name:'Arctic Frost', colors:[[.7,.9,1],[.5,.8,1],[1,1,1],[.6,.85,.95],[.8,.95,1]] },
+  { name:'Volcanic', colors:[[1,.3,0],[1,.6,0],[1,.1,0],[1,.8,.2],[.9,.2,.05]] },
+  { name:'Synthwave', colors:[[1,0,.6],[0,.8,1],[1,.2,.8],[.4,0,1],[1,.6,0]] },
+  { name:'Monochrome', colors:[[1,1,1],[.8,.8,.8],[.95,.95,1],[.7,.7,.75],[.6,.6,.65]] },
+];
 
-        // ============================================
-        // BURST PATTERNS - 8 VARIETIES
-        // ============================================
-        const BURST_TYPES = {
-            CHRYSANTHEMUM: 'chrysanthemum',
-            WILLOW: 'willow',
-            PEONY: 'peony',
-            RING: 'ring',
-            CROSSETTE: 'crossette',
-            PALM: 'palm',
-            STROBE: 'strobe',
-            CRACKLING: 'crackling'
-        };
+const showModes = ['Auto Choreography','Gentle Rain','Rapid Fire','Crescendo','Grand Finale'];
 
-        // ============================================
-        // PARTICLE CLASS
-        // ============================================
-        class Particle {
-            constructor(x, y, vx, vy, color, type = 'normal', trail = true) {
-                this.x = x;
-                this.y = y;
-                this.vx = vx;
-                this.vy = vy;
-                this.color = color;
-                this.type = type;
-                this.life = Math.random() * 40 + 60;
-                this.maxLife = this.life;
-                this.size = Math.random() * 2 + 1.5;
-                this.trail = trail;
-                this.trailHistory = [];
-                this.brightness = 1;
-                this.twinkle = Math.random() * Math.PI * 2;
-            }
+// ─── Burst Types ───
+const BURSTS = [
+  'chrysanthemum','willow','peony','ring','crossette','palm','strobe',
+  'crackling','kamuro','brocade','tourbillon','waterfall','spider',
+  'horsetail','dahlia','multiShell'
+];
 
-            update() {
-                this.vy += GRAVITY;
-                this.vx *= AIR_RESISTANCE;
-                this.vy *= AIR_RESISTANCE;
-                this.x += this.vx;
-                this.y += this.vy;
-                this.life--;
+// ═══════════════════════════════════════════════════════════════
+//  SHADER SOURCES
+// ═══════════════════════════════════════════════════════════════
 
-                if (this.trail && this.trailHistory.length < 15) {
-                    this.trailHistory.push({ x: this.x, y: this.y, life: 10 });
-                }
-                this.trailHistory = this.trailHistory.filter(t => {
-                    t.life--;
-                    return t.life > 0;
-                });
+// ─── Particle Vertex Shader ───
+const particleVert = `#version 300 es
+precision highp float;
+in vec2 aPos;
+in float aSize;
+in vec4 aColor;
+in float aAngle;
+out vec4 vColor;
+out float vAngle;
+uniform vec2 uRes;
+void main(){
+  vec2 ndc = (aPos / uRes) * 2.0 - 1.0;
+  ndc.y = -ndc.y;
+  gl_Position = vec4(ndc, 0.0, 1.0);
+  gl_PointSize = aSize * (uRes.y / 800.0);
+  vColor = aColor;
+  vAngle = aAngle;
+}`;
 
-                if (this.type === 'strobe') {
-                    this.brightness = Math.abs(Math.sin(frameCount * 0.5)) * 0.5 + 0.5;
-                }
+// ─── Particle Fragment Shader ───
+const particleFrag = `#version 300 es
+precision highp float;
+in vec4 vColor;
+in float vAngle;
+out vec4 fragColor;
+void main(){
+  vec2 c = gl_PointCoord - 0.5;
+  float d = length(c);
+  if(d > 0.5) discard;
+  // Soft glow with hot center
+  float core = smoothstep(0.5, 0.0, d);
+  float glow = exp(-d * 6.0);
+  float brightness = core * 0.6 + glow * 0.8;
+  // White-hot center fading to color
+  vec3 col = mix(vColor.rgb, vec3(1.0), smoothstep(0.15, 0.0, d));
+  // HDR - allow values > 1.0 for bloom pickup
+  fragColor = vec4(col * brightness * 2.5, vColor.a * brightness);
+}`;
 
-                this.twinkle += 0.1;
-            }
+// ─── Fullscreen Quad Vertex ───
+const quadVert = `#version 300 es
+precision highp float;
+in vec2 aPos;
+out vec2 vUV;
+void main(){
+  vUV = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
 
-            isAlive() {
-                return this.life > 0 && this.y < height + 100 && this.x > -100 && this.x < width + 100;
-            }
+// ─── Bloom Threshold + Downsample ───
+const bloomDownFrag = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 fragColor;
+uniform sampler2D uTex;
+uniform vec2 uTexelSize;
+uniform float uThreshold;
+uniform bool uFirst;
+void main(){
+  // 13-tap downsample (Sledgehammer/COD Advanced Warfare)
+  vec2 ts = uTexelSize;
+  vec3 a = texture(uTex, vUV + vec2(-2.0*ts.x, 2.0*ts.y)).rgb;
+  vec3 b = texture(uTex, vUV + vec2(0.0, 2.0*ts.y)).rgb;
+  vec3 c = texture(uTex, vUV + vec2(2.0*ts.x, 2.0*ts.y)).rgb;
+  vec3 d = texture(uTex, vUV + vec2(-2.0*ts.x, 0.0)).rgb;
+  vec3 e = texture(uTex, vUV).rgb;
+  vec3 f = texture(uTex, vUV + vec2(2.0*ts.x, 0.0)).rgb;
+  vec3 g = texture(uTex, vUV + vec2(-2.0*ts.x,-2.0*ts.y)).rgb;
+  vec3 h = texture(uTex, vUV + vec2(0.0,-2.0*ts.y)).rgb;
+  vec3 i = texture(uTex, vUV + vec2(2.0*ts.x,-2.0*ts.y)).rgb;
+  vec3 j = texture(uTex, vUV + vec2(-ts.x, ts.y)).rgb;
+  vec3 k = texture(uTex, vUV + vec2(ts.x, ts.y)).rgb;
+  vec3 l = texture(uTex, vUV + vec2(-ts.x,-ts.y)).rgb;
+  vec3 m = texture(uTex, vUV + vec2(ts.x,-ts.y)).rgb;
+  vec3 color = (a+c+g+i)*0.03125 + (b+d+f+h)*0.0625 + (j+k+l+m)*0.125 + e*0.125;
+  if(uFirst){
+    float br = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    float soft = clamp(br - uThreshold + 0.5, 0.0, 1.0);
+    soft = soft * soft * (1.0 / (2.0 * 0.5 + 0.0001));
+    float contrib = max(soft, br - uThreshold) / max(br, 0.0001);
+    color *= contrib;
+  }
+  fragColor = vec4(color, 1.0);
+}`;
 
-            draw(ctx, bloom = false) {
-                const alpha = Math.min(this.life / this.maxLife, 1) * this.brightness;
+// ─── Bloom Upsample ───
+const bloomUpFrag = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 fragColor;
+uniform sampler2D uTex;
+uniform vec2 uTexelSize;
+uniform float uRadius;
+void main(){
+  vec2 ts = uTexelSize * uRadius;
+  vec3 a = texture(uTex, vUV + vec2(-ts.x, ts.y)).rgb;
+  vec3 b = texture(uTex, vUV + vec2(0.0, ts.y)).rgb * 2.0;
+  vec3 c = texture(uTex, vUV + vec2(ts.x, ts.y)).rgb;
+  vec3 d = texture(uTex, vUV + vec2(-ts.x, 0.0)).rgb * 2.0;
+  vec3 e = texture(uTex, vUV).rgb * 4.0;
+  vec3 f = texture(uTex, vUV + vec2(ts.x, 0.0)).rgb * 2.0;
+  vec3 g = texture(uTex, vUV + vec2(-ts.x,-ts.y)).rgb;
+  vec3 h = texture(uTex, vUV + vec2(0.0,-ts.y)).rgb * 2.0;
+  vec3 i = texture(uTex, vUV + vec2(ts.x,-ts.y)).rgb;
+  fragColor = vec4((a+b+c+d+e+f+g+h+i) / 16.0, 1.0);
+}`;
 
-                if (bloom) {
-                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 8);
-                    gradient.addColorStop(0, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha * 0.8})`);
-                    gradient.addColorStop(0.3, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha * 0.4})`);
-                    gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size * 8, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    if (this.trail && this.trailHistory.length > 0) {
-                        ctx.strokeStyle = `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha * 0.3})`;
-                        ctx.lineWidth = this.size * 0.5;
-                        ctx.beginPath();
-                        ctx.moveTo(this.trailHistory[0].x, this.trailHistory[0].y);
-                        for (let t of this.trailHistory) {
-                            ctx.lineTo(t.x, t.y);
-                        }
-                        ctx.stroke();
-                    }
+// ─── Composite (Bloom + CA + Vignette + Tonemap + Grain) ───
+const compositeFrag = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 fragColor;
+uniform sampler2D uScene;
+uniform sampler2D uBloom;
+uniform float uBloomStr;
+uniform float uCA;
+uniform float uTime;
+uniform float uShake;
+uniform bool uEnableBloom;
+uniform bool uEnableCA;
 
-                    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
-                    gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-                    gradient.addColorStop(0.5, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, ${alpha})`);
-                    gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
-                    ctx.fillStyle = gradient;
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.size * 2, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
+vec3 aces(vec3 x){
+  float a=2.51,b=0.03,c=2.43,d=0.59,e=0.14;
+  return clamp((x*(a*x+b))/(x*(c*x+d)+e),0.0,1.0);
+}
+
+void main(){
+  vec2 uv = vUV;
+
+  // Camera shake
+  if(uShake > 0.001){
+    uv += vec2(sin(uTime*90.0)*uShake, cos(uTime*70.0)*uShake) * 0.01;
+  }
+
+  vec3 scene;
+  if(uEnableCA && uCA > 0.0){
+    vec2 dir = (uv - 0.5) * uCA;
+    scene.r = texture(uScene, uv - dir).r;
+    scene.g = texture(uScene, uv).g;
+    scene.b = texture(uScene, uv + dir).b;
+  } else {
+    scene = texture(uScene, uv).rgb;
+  }
+
+  vec3 bloom = vec3(0.0);
+  if(uEnableBloom){
+    if(uEnableCA && uCA > 0.0){
+      vec2 dir = (uv - 0.5) * uCA * 0.5;
+      bloom.r = texture(uBloom, uv - dir).r;
+      bloom.g = texture(uBloom, uv).g;
+      bloom.b = texture(uBloom, uv + dir).b;
+    } else {
+      bloom = texture(uBloom, uv).rgb;
+    }
+  }
+
+  vec3 color = scene + bloom * uBloomStr;
+
+  // ACES tonemap
+  color = aces(color);
+
+  // Vignette
+  float vig = 1.0 - dot((uv-0.5)*1.2, (uv-0.5)*1.2);
+  vig = smoothstep(0.0, 1.0, vig);
+  color *= vig;
+
+  // Film grain
+  float grain = fract(sin(dot(uv*uTime*100.0, vec2(12.9898,78.233)))*43758.5453);
+  color += (grain - 0.5) * 0.015;
+
+  // Gamma
+  color = pow(color, vec3(1.0/2.2));
+
+  fragColor = vec4(color, 1.0);
+}`;
+
+// ─── Skyline + Background Fragment ───
+const bgFrag = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 fragColor;
+uniform float uTime;
+uniform vec2 uRes;
+uniform float uReflect;
+
+float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}
+
+float building(vec2 uv, float x, float w, float h){
+  float d = step(x, uv.x) * step(uv.x, x+w) * step(1.0-h, uv.y);
+  // Windows
+  if(d > 0.0){
+    vec2 local = (uv - vec2(x, 1.0-h)) / vec2(w, h);
+    float wx = step(0.1, fract(local.x * floor(w*60.0)));
+    float wy = step(0.3, fract(local.y * floor(h*30.0)));
+    float lit = step(0.55, hash(floor(vec2(local.x*floor(w*60.0), local.y*floor(h*30.0)))+floor(uTime*0.05)));
+    d *= 0.02 + wx * wy * lit * 0.12;
+  }
+  return d;
+}
+
+void main(){
+  vec2 uv = vUV;
+  bool reflected = false;
+  float reflMul = 1.0;
+
+  // Water reflection zone (bottom 18%)
+  float waterLine = 0.82;
+  if(uv.y > waterLine && uReflect > 0.0){
+    uv.y = waterLine - (uv.y - waterLine);
+    reflected = true;
+    float distort = sin(uv.x * 40.0 + uTime * 2.0) * 0.003 + sin(uv.x * 80.0 + uTime * 3.5) * 0.001;
+    uv.y += distort;
+    uv.x += sin(uv.y * 60.0 + uTime * 1.5) * 0.002;
+    reflMul = 0.3 * uReflect;
+  }
+
+  // Sky gradient
+  float skyT = uv.y;
+  vec3 skyTop = vec3(0.0, 0.0, 0.02);
+  vec3 skyMid = vec3(0.02, 0.01, 0.06);
+  vec3 skyBot = vec3(0.04, 0.02, 0.08);
+  vec3 sky = mix(skyTop, mix(skyMid, skyBot, smoothstep(0.3, 0.9, skyT)), skyT);
+
+  // Ambient glow on horizon
+  float horizonGlow = exp(-pow((uv.y - 0.78) * 8.0, 2.0)) * 0.08;
+  sky += vec3(0.1, 0.05, 0.15) * horizonGlow;
+
+  // Stars (only above waterline in non-reflected)
+  if(uv.y < 0.7){
+    float starField = hash(floor(uv * vec2(uRes.x*0.5, uRes.y*0.3)));
+    float twinkle = sin(uTime * (1.0 + starField * 3.0) + starField * 100.0) * 0.5 + 0.5;
+    if(starField > 0.997){
+      float starBright = (starField - 0.997) * 333.0 * twinkle;
+      sky += vec3(starBright * 0.8);
+    }
+  }
+
+  // City skyline
+  float city = 0.0;
+  city = max(city, building(uv, 0.02, 0.03, 0.12));
+  city = max(city, building(uv, 0.06, 0.05, 0.18));
+  city = max(city, building(uv, 0.12, 0.02, 0.22));
+  city = max(city, building(uv, 0.15, 0.04, 0.16));
+  city = max(city, building(uv, 0.20, 0.03, 0.25));
+  city = max(city, building(uv, 0.24, 0.06, 0.20));
+  city = max(city, building(uv, 0.31, 0.02, 0.30));
+  city = max(city, building(uv, 0.34, 0.05, 0.15));
+  city = max(city, building(uv, 0.40, 0.03, 0.19));
+  city = max(city, building(uv, 0.44, 0.04, 0.28));
+  city = max(city, building(uv, 0.49, 0.02, 0.35));
+  city = max(city, building(uv, 0.52, 0.05, 0.22));
+  city = max(city, building(uv, 0.58, 0.03, 0.17));
+  city = max(city, building(uv, 0.62, 0.04, 0.26));
+  city = max(city, building(uv, 0.67, 0.06, 0.20));
+  city = max(city, building(uv, 0.74, 0.03, 0.32));
+  city = max(city, building(uv, 0.78, 0.04, 0.14));
+  city = max(city, building(uv, 0.83, 0.05, 0.24));
+  city = max(city, building(uv, 0.89, 0.03, 0.18));
+  city = max(city, building(uv, 0.93, 0.05, 0.21));
+
+  vec3 color = sky + vec3(city);
+
+  // Water surface tint
+  if(vUV.y > waterLine && uReflect > 0.0){
+    float waterDepth = (vUV.y - waterLine) / (1.0 - waterLine);
+    vec3 waterColor = vec3(0.0, 0.02, 0.05);
+    color = mix(color * reflMul, waterColor, waterDepth * 0.7);
+    // Subtle specular ripples
+    float ripple = sin(vUV.x * 120.0 + uTime * 2.0) * sin(vUV.x * 45.0 - uTime * 1.2);
+    color += vec3(0.005) * ripple * (1.0 - waterDepth);
+  }
+
+  fragColor = vec4(color, 1.0);
+}`;
+
+// ═══════════════════════════════════════════════════════════════
+//  WebGL HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function compileShader(src, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s), src.split('\n').map((l,i)=>`${i+1}: ${l}`).join('\n'));
+    return null;
+  }
+  return s;
+}
+
+function createProgram(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, compileShader(vs, gl.VERTEX_SHADER));
+  gl.attachShader(p, compileShader(fs, gl.FRAGMENT_SHADER));
+  gl.linkProgram(p);
+  if (!gl.getShaderParameter) return p; // fallback
+  return p;
+}
+
+function getUniforms(prog, names) {
+  const u = {};
+  names.forEach(n => u[n] = gl.getUniformLocation(prog, n));
+  return u;
+}
+
+function createFBO(w, h, format = gl.RGBA16F) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, format, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  return { fbo, tex, w, h };
+}
+
+// ─── Enable float textures ───
+gl.getExtension('EXT_color_buffer_float');
+gl.getExtension('OES_texture_float_linear');
+gl.getExtension('EXT_color_buffer_half_float');
+gl.getExtension('OES_texture_half_float_linear');
+
+// ═══════════════════════════════════════════════════════════════
+//  PROGRAM SETUP
+// ═══════════════════════════════════════════════════════════════
+
+const particleProg = createProgram(particleVert, particleFrag);
+const pU = getUniforms(particleProg, ['uRes']);
+
+const bgProg = createProgram(quadVert, bgFrag);
+const bgU = getUniforms(bgProg, ['uTime','uRes','uReflect']);
+
+const bloomDownProg = createProgram(quadVert, bloomDownFrag);
+const bdU = getUniforms(bloomDownProg, ['uTex','uTexelSize','uThreshold','uFirst']);
+
+const bloomUpProg = createProgram(quadVert, bloomUpFrag);
+const buU = getUniforms(bloomUpProg, ['uTex','uTexelSize','uRadius']);
+
+const compositeProg = createProgram(quadVert, compositeFrag);
+const cU = getUniforms(compositeProg, ['uScene','uBloom','uBloomStr','uCA','uTime','uShake','uEnableBloom','uEnableCA']);
+
+// ─── Fullscreen quad VAO ───
+const quadVAO = gl.createVertexArray();
+gl.bindVertexArray(quadVAO);
+const quadBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+const qPosLoc = gl.getAttribLocation(compositeProg, 'aPos');
+gl.enableVertexAttribArray(qPosLoc);
+gl.vertexAttribPointer(qPosLoc, 2, gl.FLOAT, false, 0, 0);
+gl.bindVertexArray(null);
+
+// ─── Particle buffers ───
+const particleVAO = gl.createVertexArray();
+gl.bindVertexArray(particleVAO);
+
+// Interleaved: x,y, size, r,g,b,a, angle = 8 floats
+const STRIDE = 8 * 4;
+const particleData = new Float32Array(MAX_PARTICLES * 8);
+const particleBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, particleBuf);
+gl.bufferData(gl.ARRAY_BUFFER, particleData.byteLength, gl.DYNAMIC_DRAW);
+
+const aPosLoc = gl.getAttribLocation(particleProg, 'aPos');
+const aSizeLoc = gl.getAttribLocation(particleProg, 'aSize');
+const aColorLoc = gl.getAttribLocation(particleProg, 'aColor');
+const aAngleLoc = gl.getAttribLocation(particleProg, 'aAngle');
+
+gl.enableVertexAttribArray(aPosLoc);
+gl.vertexAttribPointer(aPosLoc, 2, gl.FLOAT, false, STRIDE, 0);
+gl.enableVertexAttribArray(aSizeLoc);
+gl.vertexAttribPointer(aSizeLoc, 1, gl.FLOAT, false, STRIDE, 8);
+gl.enableVertexAttribArray(aColorLoc);
+gl.vertexAttribPointer(aColorLoc, 4, gl.FLOAT, false, STRIDE, 12);
+gl.enableVertexAttribArray(aAngleLoc);
+gl.vertexAttribPointer(aAngleLoc, 1, gl.FLOAT, false, STRIDE, 28);
+
+gl.bindVertexArray(null);
+
+// ═══════════════════════════════════════════════════════════════
+//  FRAMEBUFFERS & BLOOM MIP CHAIN
+// ═══════════════════════════════════════════════════════════════
+
+let sceneFBO, bloomMips;
+const BLOOM_LEVELS = 6;
+
+function createRenderTargets() {
+  sceneFBO = createFBO(W, H);
+  bloomMips = [];
+  let w = Math.floor(W/2), h = Math.floor(H/2);
+  for (let i = 0; i < BLOOM_LEVELS; i++) {
+    bloomMips.push(createFBO(Math.max(w,1), Math.max(h,1)));
+    w = Math.floor(w/2);
+    h = Math.floor(h/2);
+  }
+}
+
+function drawQuad() {
+  gl.bindVertexArray(quadVAO);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  drawCalls++;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PARTICLE SYSTEM (CPU physics, GPU rendering)
+// ═══════════════════════════════════════════════════════════════
+
+class Particle {
+  constructor(x, y, vx, vy, r, g, b, life, size, type = 0) {
+    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+    this.r = r; this.g = g; this.b = b;
+    this.life = life; this.maxLife = life;
+    this.size = size; this.type = type;
+    this.drag = AIR_DRAG;
+    this.gravity = GRAVITY;
+    this.shimmer = Math.random() * PI2;
+  }
+  update() {
+    this.vy += this.gravity;
+    this.vx *= this.drag;
+    this.vy *= this.drag;
+    this.vx += settings.wind * 0.0001;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.life--;
+    this.shimmer += 0.15;
+    return this.life > 0 && this.y < 1.1 && this.x > -0.1 && this.x < 1.1;
+  }
+}
+
+class Rocket {
+  constructor(x, targetY, color, burstType) {
+    this.x = x; this.y = 1.0;
+    this.targetY = targetY;
+    this.vy = -(0.012 + Math.random() * 0.005);
+    this.vx = (Math.random() - 0.5) * 0.001;
+    this.color = color;
+    this.burstType = burstType;
+    this.trail = 0;
+    this.alive = true;
+  }
+  update() {
+    this.vy += GRAVITY * 0.25;
+    this.vx += settings.wind * 0.00003;
+    this.x += this.vx;
+    this.y += this.vy;
+    // Trail sparks
+    if (this.trail++ % 2 === 0 && particles.length < MAX_PARTICLES - 200) {
+      particles.push(new Particle(
+        this.x + (Math.random()-.5)*0.003, this.y,
+        (Math.random()-.5)*0.001, Math.random()*0.003 + 0.001,
+        1, 0.8+Math.random()*0.2, 0.3+Math.random()*0.3,
+        15 + Math.random()*15, 1.5+Math.random(), 0
+      ));
+    }
+    if (this.y <= this.targetY) {
+      this.explode();
+      this.alive = false;
+    }
+    return this.alive && this.y > -0.1;
+  }
+  explode() {
+    createBurst(this.x, this.y, this.color, this.burstType);
+    triggerScreenEffects(this.y);
+    playBoom(this.y);
+  }
+}
+
+// ─── Burst Creation ───
+function createBurst(x, y, color, type) {
+  const n = settings.intensity;
+  const [cr, cg, cb] = color;
+
+  switch(type) {
+    case 'chrysanthemum': {
+      for(let i=0;i<n;i++){
+        const a=PI2*i/n+Math.random()*0.15;
+        const s=Math.random()*0.008+0.004;
+        particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,60+Math.random()*40,2+Math.random()*2));
+      }
+      break;
+    }
+    case 'willow': {
+      for(let i=0;i<n;i++){
+        const a=PI2*i/n+Math.random()*0.2;
+        const s=Math.random()*0.007+0.005;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s-0.002,cr,cg,cb,100+Math.random()*60,1.5+Math.random());
+        p.gravity=GRAVITY*1.8; p.drag=0.994;
+        particles.push(p);
+      }
+      break;
+    }
+    case 'peony': {
+      for(let i=0;i<n;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.005+0.006;
+        particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,50+Math.random()*30,2.5+Math.random()*2));
+      }
+      break;
+    }
+    case 'ring': {
+      for(let i=0;i<n;i++){
+        const a=PI2*i/n;
+        const s=0.007;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,45+Math.random()*20,2+Math.random());
+        p.drag=0.993;
+        particles.push(p);
+      }
+      // Inner ring
+      for(let i=0;i<n*0.4;i++){
+        const a=PI2*i/(n*0.4);
+        const s=0.004;
+        particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,1,1,1,35+Math.random()*15,1.5));
+      }
+      break;
+    }
+    case 'crossette': {
+      const pts=8;
+      for(let j=0;j<pts;j++){
+        const ba=PI2*j/pts;
+        const bx=x+Math.cos(ba)*0.04;
+        const by=y+Math.sin(ba)*0.04;
+        setTimeout(()=>{
+          for(let i=0;i<n*0.15;i++){
+            const a=Math.random()*PI2;
+            const s=Math.random()*0.005+0.002;
+            particles.push(new Particle(bx,by,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,30+Math.random()*20,2+Math.random()));
+          }
+          playBoom(by, 0.3);
+        }, 200+j*50);
+      }
+      for(let i=0;i<n*0.3;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.006+0.003;
+        particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,25,2));
+      }
+      break;
+    }
+    case 'palm': {
+      for(let i=0;i<n;i++){
+        const a=Math.random()*Math.PI-Math.PI/2+Math.random()*0.3;
+        const s=Math.random()*0.008+0.005;
+        const p=new Particle(x,y,Math.cos(a)*s*0.5,Math.sin(a)*s-0.003,cr,cg,cb,80+Math.random()*50,2+Math.random());
+        p.gravity=GRAVITY*2; p.drag=0.993;
+        particles.push(p);
+      }
+      break;
+    }
+    case 'strobe': {
+      for(let i=0;i<n;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.006+0.003;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,50+Math.random()*30,2.5+Math.random()*2,1);
+        particles.push(p);
+      }
+      break;
+    }
+    case 'crackling': {
+      for(let i=0;i<n*1.5;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.009+0.002;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,1,0.9,0.6,15+Math.random()*25,1+Math.random(),0);
+        particles.push(p);
+      }
+      playCrackle();
+      break;
+    }
+    case 'kamuro': {
+      for(let i=0;i<n*1.2;i++){
+        const a=PI2*i/(n*1.2);
+        const s=Math.random()*0.004+0.006;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,1,.84,0,120+Math.random()*80,1.5+Math.random());
+        p.gravity=GRAVITY*2.2; p.drag=0.992;
+        particles.push(p);
+      }
+      break;
+    }
+    case 'brocade': {
+      for(let i=0;i<n;i++){
+        const a=PI2*i/n+Math.random()*0.1;
+        const s=Math.random()*0.003+0.005;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,.9,.8,.5,70+Math.random()*40,2+Math.random());
+        p.drag=0.995;
+        particles.push(p);
+      }
+      // Glitter overlay
+      for(let i=0;i<n*0.5;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.006+0.003;
+        const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,1,1,.9,50+Math.random()*30,1+Math.random(),1);
+        particles.push(p);
+      }
+      break;
+    }
+    case 'tourbillon': {
+      const arms=5;
+      for(let j=0;j<arms;j++){
+        for(let i=0;i<n/arms;i++){
+          const t=i/(n/arms);
+          const a=PI2*j/arms+t*Math.PI*3;
+          const s=(0.002+t*0.008);
+          const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,40+Math.random()*40,2+Math.random());
+          particles.push(p);
         }
-
-        // ============================================
-        // ROCKET CLASS
-        // ============================================
-        class Rocket {
-            constructor(x, targetY, color, burstType) {
-                this.x = x;
-                this.y = height;
-                this.targetY = targetY;
-                this.vy = ROCKET_THRUST;
-                this.color = color;
-                this.burstType = burstType;
-                this.trail = [];
-                this.exploded = false;
-            }
-
-            update() {
-                this.vy += GRAVITY * 0.3;
-                this.y += this.vy;
-
-                if (Math.random() < 0.3) {
-                    const sparkVx = (Math.random() - 0.5) * 2;
-                    const sparkVy = Math.random() * 2 + 1;
-                    particles.push(new Particle(
-                        this.x + (Math.random() - 0.5) * 4,
-                        this.y,
-                        sparkVx,
-                        sparkVy,
-                        { r: 255, g: 200 + Math.random() * 55, b: 100 },
-                        'normal',
-                        false
-                    ));
-                }
-
-                if (Math.random() < 0.1) {
-                    smoke.push({
-                        x: this.x,
-                        y: this.y,
-                        vx: (Math.random() - 0.5) * 0.5,
-                        vy: Math.random() * 0.5,
-                        life: 40,
-                        size: Math.random() * 3 + 2
-                    });
-                }
-
-                if (this.y <= this.targetY && !this.exploded) {
-                    this.explode();
-                    this.exploded = true;
-                    return false;
-                }
-
-                return this.y > 0;
-            }
-
-            explode() {
-                createBurst(this.x, this.y, this.color, this.burstType);
-                playBoom(this.y / height);
-            }
-
-            draw(ctx) {
-                const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 8);
-                gradient.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
-                gradient.addColorStop(0.5, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0.7)`);
-                gradient.addColorStop(1, `rgba(${this.color.r}, ${this.color.g}, ${this.color.b}, 0)`);
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
-                ctx.fill();
-            }
+      }
+      break;
+    }
+    case 'waterfall': {
+      for(let i=0;i<n*1.2;i++){
+        const a=Math.random()*0.8+Math.PI/2-0.4;
+        const s=Math.random()*0.004+0.002;
+        const p=new Particle(x,y,Math.cos(a)*s*0.3,(Math.random()*0.002+0.001),cr,cg,cb,80+Math.random()*60,1.5+Math.random());
+        p.gravity=GRAVITY*3; p.drag=0.996;
+        particles.push(p);
+      }
+      break;
+    }
+    case 'spider': {
+      const legs=12;
+      for(let j=0;j<legs;j++){
+        const ba=PI2*j/legs;
+        for(let i=0;i<n/legs;i++){
+          const t=i/(n/legs);
+          const a=ba+Math.sin(t*8)*0.3;
+          const s=0.004+t*0.006;
+          const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,50+Math.random()*30,2+t*2);
+          p.drag=0.99;
+          particles.push(p);
         }
-
-        // ============================================
-        // BURST CREATION
-        // ============================================
-        function createBurst(x, y, colorBase, burstType) {
-            const intensity = burstIntensity;
-
-            switch(burstType) {
-                case BURST_TYPES.CHRYSANTHEMUM:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = (Math.PI * 2 * i) / intensity + Math.random() * 0.2;
-                        const speed = Math.random() * 3 + 2;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'normal', true));
-                    }
-                    break;
-
-                case BURST_TYPES.WILLOW:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = Math.random() * 5 + 3;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed - 2;
-                        const p = new Particle(x, y, vx, vy, colorBase, 'normal', true);
-                        p.life = 120;
-                        particles.push(p);
-                    }
-                    break;
-
-                case BURST_TYPES.PEONY:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = Math.random() * 2 + 4;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'normal', true));
-                    }
-                    break;
-
-                case BURST_TYPES.RING:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = (Math.PI * 2 * i) / intensity;
-                        const speed = 5;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'normal', true));
-                    }
-                    break;
-
-                case BURST_TYPES.CROSSETTE:
-                    for (let i = 0; i < intensity * 0.3; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = Math.random() * 4 + 2;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'normal', true));
-                    }
-                    setTimeout(() => {
-                        const offsets = [{x: -30, y: -30}, {x: 30, y: -30}, {x: -30, y: 30}, {x: 30, y: 30}];
-                        offsets.forEach(offset => {
-                            for (let i = 0; i < intensity * 0.2; i++) {
-                                const angle = Math.random() * Math.PI * 2;
-                                const speed = Math.random() * 3 + 1;
-                                const vx = Math.cos(angle) * speed;
-                                const vy = Math.sin(angle) * speed;
-                                particles.push(new Particle(x + offset.x, y + offset.y, vx, vy, colorBase, 'normal', true));
-                            }
-                        });
-                        playBoom((y + 30) / height);
-                    }, 500);
-                    break;
-
-                case BURST_TYPES.PALM:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = Math.random() * Math.PI - Math.PI / 2;
-                        const speed = Math.random() * 5 + 3;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed - 2;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'normal', true));
-                    }
-                    break;
-
-                case BURST_TYPES.STROBE:
-                    for (let i = 0; i < intensity; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = Math.random() * 4 + 2;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        particles.push(new Particle(x, y, vx, vy, colorBase, 'strobe', true));
-                    }
-                    break;
-
-                case BURST_TYPES.CRACKLING:
-                    for (let i = 0; i < intensity * 1.5; i++) {
-                        const angle = Math.random() * Math.PI * 2;
-                        const speed = Math.random() * 6 + 1;
-                        const vx = Math.cos(angle) * speed;
-                        const vy = Math.sin(angle) * speed;
-                        const p = new Particle(x, y, vx, vy, colorBase, 'normal', false);
-                        p.life = Math.random() * 20 + 10;
-                        particles.push(p);
-                    }
-                    playCrackle();
-                    break;
-            }
+      }
+      break;
+    }
+    case 'horsetail': {
+      for(let i=0;i<n;i++){
+        const a=Math.random()*PI2;
+        const s=Math.random()*0.002+0.001;
+        const p=new Particle(x,y,Math.cos(a)*s,-Math.random()*0.003-0.001,1,.9,.5,100+Math.random()*80,1+Math.random());
+        p.gravity=GRAVITY*0.5; p.drag=0.998;
+        particles.push(p);
+      }
+      break;
+    }
+    case 'dahlia': {
+      const layers=4;
+      for(let l=0;l<layers;l++){
+        const tc = getThemeColor();
+        for(let i=0;i<n/layers;i++){
+          const a=PI2*i/(n/layers)+l*0.3;
+          const s=(0.003+l*0.002)+Math.random()*0.002;
+          particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,tc[0],tc[1],tc[2],40+l*15+Math.random()*20,2+Math.random()));
         }
-
-        // ============================================
-        // STARFIELD BACKGROUND
-        // ============================================
-        function createStarfield() {
-            stars = [];
-            for (let i = 0; i < 200; i++) {
-                stars.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    size: Math.random() * 1.5,
-                    twinkle: Math.random() * Math.PI * 2,
-                    twinkleSpeed: Math.random() * 0.02 + 0.01
-                });
-            }
+      }
+      break;
+    }
+    case 'multiShell': {
+      // First shell
+      for(let i=0;i<n*0.5;i++){
+        const a=PI2*i/(n*0.5);
+        const s=Math.random()*0.003+0.005;
+        particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,cr,cg,cb,35+Math.random()*15,2.5+Math.random()));
+      }
+      // Delayed second shell
+      setTimeout(()=>{
+        const c2=getThemeColor();
+        for(let i=0;i<n*0.6;i++){
+          const a=PI2*i/(n*0.6);
+          const s=Math.random()*0.004+0.003;
+          particles.push(new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,c2[0],c2[1],c2[2],45+Math.random()*20,2+Math.random()));
         }
-
-        function drawStarfield() {
-            starCtx.fillStyle = '#000';
-            starCtx.fillRect(0, 0, width, height);
-
-            stars.forEach(star => {
-                star.twinkle += star.twinkleSpeed;
-                const alpha = (Math.sin(star.twinkle) * 0.3 + 0.7) * 0.6;
-                starCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-                starCtx.beginPath();
-                starCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                starCtx.fill();
-            });
+        playBoom(y, 0.6);
+      }, 300);
+      // Delayed third shell
+      setTimeout(()=>{
+        const c3=getThemeColor();
+        for(let i=0;i<n*0.4;i++){
+          const a=PI2*i/(n*0.4);
+          const s=Math.random()*0.002+0.002;
+          const p=new Particle(x,y,Math.cos(a)*s,Math.sin(a)*s,c3[0],c3[1],c3[2],55+Math.random()*25,1.5+Math.random(),1);
+          particles.push(p);
         }
+        playCrackle();
+      }, 600);
+      break;
+    }
+  }
+}
 
-        // ============================================
-        // SMOKE SIMULATION
-        // ============================================
-        function updateSmoke() {
-            smoke = smoke.filter(s => {
-                s.x += s.vx;
-                s.y += s.vy;
-                s.vx += (Math.random() - 0.5) * SMOKE_DRIFT;
-                s.vy -= SMOKE_DRIFT * 2;
-                s.life--;
-                s.size *= 1.02;
-                return s.life > 0;
-            });
+function getThemeColor() {
+  const t = themes[settings.theme];
+  return t.colors[Math.floor(Math.random() * t.colors.length)];
+}
+
+function triggerScreenEffects(y) {
+  settings.shake = 0.3 + (1-y) * 0.5;
+  // Flash
+  const flash = document.getElementById('flash');
+  flash.style.background = 'rgba(255,200,100,0.06)';
+  flash.style.opacity = '1';
+  setTimeout(()=>flash.style.opacity='0', 50);
+}
+
+// ─── Rocket Launcher ───
+function launchRocket(x = null) {
+  if (rockets.length >= MAX_ROCKETS) return;
+  if (x === null) x = 0.15 + Math.random() * 0.7;
+  const targetY = 0.1 + Math.random() * 0.35;
+  const color = getThemeColor();
+  const burstType = BURSTS[Math.floor(Math.random() * BURSTS.length)];
+  rockets.push(new Rocket(x, targetY, color, burstType));
+  playWhistle();
+}
+
+// ─── Auto-Choreography ───
+let choreoBeat = 0;
+function updateChoreography() {
+  choreoBeat++;
+  const mode = settings.showMode;
+
+  switch(mode) {
+    case 0: // Auto - dynamic pacing
+      if (choreoBeat % 90 === 0) launchRocket();
+      if (choreoBeat % 180 === 0) { launchRocket(); launchRocket(); }
+      if (choreoBeat % 600 === 0) { // Burst of 5
+        for(let i=0;i<5;i++) setTimeout(()=>launchRocket(), i*80);
+      }
+      if (choreoBeat % 1800 === 0) { // Mini finale
+        for(let i=0;i<12;i++) setTimeout(()=>launchRocket(), i*60);
+      }
+      break;
+    case 1: // Gentle rain
+      if (Math.random() < 0.008) launchRocket();
+      break;
+    case 2: // Rapid fire
+      if (Math.random() < 0.04) launchRocket();
+      break;
+    case 3: // Crescendo
+      { const rate = 0.003 + (choreoBeat % 1200) / 1200 * 0.04;
+        if (Math.random() < rate) launchRocket();
+        if (choreoBeat % 1200 === 0) choreoBeat = 0;
+      }
+      break;
+    case 4: // Grand finale
+      if (Math.random() < 0.08) launchRocket();
+      if (choreoBeat % 30 === 0) { launchRocket(); launchRocket(); }
+      break;
+  }
+
+  // Wind variation
+  settings.wind = Math.sin(choreoBeat * 0.001) * 3;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PROCEDURAL AUDIO ENGINE
+// ═══════════════════════════════════════════════════════════════
+
+let audioCtx = null;
+let reverbBuffer = null;
+let masterGain = null;
+let compressor = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Master chain: compressor -> gain -> destination
+  compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -24;
+  compressor.knee.value = 30;
+  compressor.ratio.value = 12;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.25;
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.5;
+
+  compressor.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+
+  // Create impulse response for reverb
+  createReverb();
+}
+
+function createReverb() {
+  const sr = audioCtx.sampleRate;
+  const len = sr * 2.5;
+  reverbBuffer = audioCtx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = reverbBuffer.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.5) * 0.5;
+      // Early reflections
+      if (i < sr * 0.1) data[i] *= 1.5;
+    }
+  }
+}
+
+function playWithReverb(node, dryLevel = 0.7, wetLevel = 0.15) {
+  if (!audioCtx || !reverbBuffer) return;
+
+  const dry = audioCtx.createGain();
+  dry.gain.value = dryLevel;
+
+  const wet = audioCtx.createGain();
+  wet.gain.value = wetLevel;
+
+  const reverb = audioCtx.createConvolver();
+  reverb.buffer = reverbBuffer;
+
+  node.connect(dry);
+  node.connect(reverb);
+  reverb.connect(wet);
+  dry.connect(compressor);
+  wet.connect(compressor);
+}
+
+function playBoom(y = 0.5, vol = 1.0) {
+  if (!settings.sound || !audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+
+    // Low-frequency boom
+    const bufLen = audioCtx.sampleRate * 0.8;
+    const buf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const t2 = i / bufLen;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t2, 2.5);
+    }
+
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 120 + y * 400;
+    lp.Q.value = 0.8;
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.25 * vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+
+    src.connect(lp);
+    lp.connect(gain);
+    playWithReverb(gain, 0.6, 0.2);
+    src.start(t);
+
+    // Tonal component
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(60 + y * 80, t);
+    osc.frequency.exponentialRampToValueAtTime(20, t + 0.4);
+
+    const oscGain = audioCtx.createGain();
+    oscGain.gain.setValueAtTime(0.12 * vol, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+    osc.connect(oscGain);
+    oscGain.connect(compressor);
+    osc.start(t);
+    osc.stop(t + 0.5);
+  } catch(e) {}
+}
+
+function playWhistle() {
+  if (!settings.sound || !audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600 + Math.random() * 400, t);
+    osc.frequency.exponentialRampToValueAtTime(1800 + Math.random() * 600, t + 0.6);
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.03, t);
+    gain.gain.linearRampToValueAtTime(0.06, t + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+
+    osc.connect(gain);
+    gain.connect(compressor);
+    osc.start(t);
+    osc.stop(t + 0.7);
+  } catch(e) {}
+}
+
+function playCrackle() {
+  if (!settings.sound || !audioCtx) return;
+  try {
+    for (let i = 0; i < 12; i++) {
+      setTimeout(() => {
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.value = 800 + Math.random() * 2000;
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+        osc.connect(gain);
+        gain.connect(compressor);
+        osc.start(t);
+        osc.stop(t + 0.04);
+      }, i * 40 + Math.random() * 30);
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RESIZE
+// ═══════════════════════════════════════════════════════════════
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.floor(canvas.clientWidth * dpr);
+  H = Math.floor(canvas.clientHeight * dpr);
+  canvas.width = W;
+  canvas.height = H;
+  createRenderTargets();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER PIPELINE
+// ═══════════════════════════════════════════════════════════════
+
+function render(time) {
+  const t = time * 0.001;
+  drawCalls = 0;
+
+  // ─── 1. Render scene to FBO ───
+  gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO.fbo);
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0,0,0,1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  // Background (skyline + water)
+  gl.useProgram(bgProg);
+  gl.uniform1f(bgU.uTime, t);
+  gl.uniform2f(bgU.uRes, W, H);
+  gl.uniform1f(bgU.uReflect, settings.reflections ? 1.0 : 0.0);
+  drawQuad();
+
+  // Particles
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // Additive blending for HDR glow
+
+  // Upload particle data
+  let idx = 0;
+  const allP = [];
+
+  // Rockets as particles
+  for (const r of rockets) {
+    allP.push({ x: r.x, y: r.y, size: 5, r: 1, g: 0.9, b: 0.7, a: 1, angle: 0 });
+  }
+
+  // Main particles
+  for (const p of particles) {
+    const life = p.life / p.maxLife;
+    let a = Math.min(life * 3, 1);
+    let sz = p.size;
+
+    // Strobe effect
+    if (p.type === 1) {
+      a *= Math.abs(Math.sin(frameCount * 0.3 + p.shimmer)) > 0.5 ? 1 : 0.05;
+    }
+
+    // Fade and shrink at end of life
+    if (life < 0.3) {
+      a *= life / 0.3;
+      sz *= 0.5 + life / 0.3 * 0.5;
+    }
+
+    allP.push({ x: p.x, y: p.y, size: sz, r: p.r, g: p.g, b: p.b, a, angle: p.shimmer });
+  }
+
+  // Fill buffer
+  const count = Math.min(allP.length, MAX_PARTICLES);
+  for (let i = 0; i < count; i++) {
+    const p = allP[i];
+    const o = i * 8;
+    particleData[o]   = p.x * W;
+    particleData[o+1] = p.y * H;
+    particleData[o+2] = p.size;
+    particleData[o+3] = p.r;
+    particleData[o+4] = p.g;
+    particleData[o+5] = p.b;
+    particleData[o+6] = p.a;
+    particleData[o+7] = p.angle;
+  }
+
+  if (count > 0) {
+    gl.useProgram(particleProg);
+    gl.uniform2f(pU.uRes, W, H);
+    gl.bindVertexArray(particleVAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, particleBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, particleData.subarray(0, count * 8));
+    gl.drawArrays(gl.POINTS, 0, count);
+    drawCalls++;
+  }
+
+  // Water reflections of particles
+  if (settings.reflections && count > 0) {
+    // Render reflected particles (flip Y around waterline at 82%)
+    const waterY = 0.82;
+    let rIdx = 0;
+    const reflData = new Float32Array(count * 8);
+    for (let i = 0; i < count; i++) {
+      const p = allP[i];
+      if (p.y < waterY) {
+        const ry = waterY + (waterY - p.y);
+        if (ry < 1.0) {
+          const o = rIdx * 8;
+          reflData[o]   = (p.x + Math.sin(t * 2 + p.y * 40) * 0.003) * W;
+          reflData[o+1] = ry * H;
+          reflData[o+2] = p.size * 0.7;
+          reflData[o+3] = p.r * 0.25;
+          reflData[o+4] = p.g * 0.25;
+          reflData[o+5] = p.b * 0.3;
+          reflData[o+6] = p.a * 0.25;
+          reflData[o+7] = p.angle;
+          rIdx++;
         }
+      }
+    }
+    if (rIdx > 0) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, reflData.subarray(0, rIdx * 8));
+      gl.drawArrays(gl.POINTS, 0, rIdx);
+      drawCalls++;
+    }
+  }
 
-        function drawSmoke(ctx) {
-            smoke.forEach(s => {
-                const alpha = (s.life / 40) * 0.15;
-                const gradient = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
-                gradient.addColorStop(0, `rgba(100, 100, 100, ${alpha})`);
-                gradient.addColorStop(1, `rgba(100, 100, 100, 0)`);
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
+  gl.disable(gl.BLEND);
+  gl.bindVertexArray(null);
 
-        // ============================================
-        // AUDIO SYSTEM - PROCEDURAL SOUNDS
-        // ============================================
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-        }
+  // ─── 2. Bloom (physically-based mip chain) ───
+  if (settings.bloom) {
+    // Downsample chain
+    gl.useProgram(bloomDownProg);
+    let srcTex = sceneFBO.tex;
+    for (let i = 0; i < BLOOM_LEVELS; i++) {
+      const mip = bloomMips[i];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, mip.fbo);
+      gl.viewport(0, 0, mip.w, mip.h);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, srcTex);
+      gl.uniform1i(bdU.uTex, 0);
+      const sw = i === 0 ? W : bloomMips[i-1].w;
+      const sh = i === 0 ? H : bloomMips[i-1].h;
+      gl.uniform2f(bdU.uTexelSize, 1/sw, 1/sh);
+      gl.uniform1f(bdU.uThreshold, 0.6);
+      gl.uniform1i(bdU.uFirst, i === 0 ? 1 : 0);
+      drawQuad();
+      srcTex = mip.tex;
+    }
 
-        function playLaunchWhistle() {
-            if (!soundEnabled || !audioCtx) return;
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+    // Upsample chain
+    gl.useProgram(bloomUpProg);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
 
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.5);
+    for (let i = BLOOM_LEVELS - 1; i > 0; i--) {
+      const target = bloomMips[i-1];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+      gl.viewport(0, 0, target.w, target.h);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, bloomMips[i].tex);
+      gl.uniform1i(buU.uTex, 0);
+      gl.uniform2f(buU.uTexelSize, 1/bloomMips[i].w, 1/bloomMips[i].h);
+      gl.uniform1f(buU.uRadius, 0.85);
+      drawQuad();
+    }
 
-                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+    gl.disable(gl.BLEND);
+  }
 
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.5);
-            } catch (e) {}
-        }
+  // ─── 3. Composite pass ───
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, W, H);
+  gl.useProgram(compositeProg);
 
-        function playBoom(pitchFactor = 0.5) {
-            if (!soundEnabled || !audioCtx) return;
-            try {
-                const bufferSize = audioCtx.sampleRate * 0.4;
-                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                const data = buffer.getChannelData(0);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, sceneFBO.tex);
+  gl.uniform1i(cU.uScene, 0);
 
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
-                }
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, settings.bloom && bloomMips.length ? bloomMips[0].tex : sceneFBO.tex);
+  gl.uniform1i(cU.uBloom, 1);
 
-                const noise = audioCtx.createBufferSource();
-                const filter = audioCtx.createBiquadFilter();
-                const gain = audioCtx.createGain();
+  gl.uniform1f(cU.uBloomStr, settings.bloom ? 0.7 : 0.0);
+  gl.uniform1f(cU.uCA, settings.chromatic ? 0.003 : 0.0);
+  gl.uniform1f(cU.uTime, t);
+  gl.uniform1f(cU.uShake, settings.shake);
+  gl.uniform1i(cU.uEnableBloom, settings.bloom ? 1 : 0);
+  gl.uniform1i(cU.uEnableCA, settings.chromatic ? 1 : 0);
 
-                noise.buffer = buffer;
-                filter.type = 'lowpass';
-                filter.frequency.value = 200 + pitchFactor * 300;
+  drawQuad();
+}
 
-                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+// ═══════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════════
 
-                noise.connect(filter);
-                filter.connect(gain);
-                gain.connect(audioCtx.destination);
-                noise.start();
-            } catch (e) {}
-        }
+function loop(time) {
+  requestAnimationFrame(loop);
 
-        function playCrackle() {
-            if (!soundEnabled || !audioCtx) return;
-            try {
-                for (let i = 0; i < 5; i++) {
-                    setTimeout(() => {
-                        const osc = audioCtx.createOscillator();
-                        const gain = audioCtx.createGain();
+  deltaTime = Math.min(time - lastTime, 33);
+  lastTime = time;
+  frameCount++;
 
-                        osc.type = 'square';
-                        osc.frequency.value = Math.random() * 1000 + 500;
-                        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+  // FPS
+  fpsFrames++;
+  if (time - fpsTime > 1000) {
+    fps = fpsFrames;
+    fpsFrames = 0;
+    fpsTime = time;
+    if (settings.stats) {
+      document.getElementById('sFps').textContent = fps;
+      document.getElementById('sPart').textContent = particles.length;
+      document.getElementById('sDraw').textContent = drawCalls;
+      document.getElementById('sBloom').textContent = settings.bloom ? 'ON' : 'OFF';
+    }
+  }
 
-                        osc.connect(gain);
-                        gain.connect(audioCtx.destination);
-                        osc.start();
-                        osc.stop(audioCtx.currentTime + 0.05);
-                    }, i * 50);
-                }
-            } catch (e) {}
-        }
+  // Physics updates
+  updateChoreography();
 
-        // ============================================
-        // ROCKET LAUNCHER
-        // ============================================
-        function launchRocket(x = null) {
-            if (x === null) {
-                x = Math.random() * width * 0.6 + width * 0.2;
-            }
-            const targetY = Math.random() * (height * 0.4) + (height * 0.1);
-            const color = getRandomThemeColor();
-            const burstType = Object.values(BURST_TYPES)[Math.floor(Math.random() * Object.values(BURST_TYPES).length)];
+  rockets = rockets.filter(r => r.update());
+  particles = particles.filter(p => p.update());
 
-            rockets.push(new Rocket(x, targetY, color, burstType));
-            playLaunchWhistle();
-        }
+  // Decay shake
+  settings.shake *= 0.92;
 
-        // ============================================
-        // THEME MANAGEMENT
-        // ============================================
-        function getRandomThemeColor() {
-            const theme = themes[themeIndex];
-            return theme.colors[Math.floor(Math.random() * theme.colors.length)];
-        }
+  // Cull excess particles
+  if (particles.length > MAX_PARTICLES * 0.9) {
+    particles = particles.slice(particles.length - MAX_PARTICLES * 0.7);
+  }
 
-        // ============================================
-        // MAIN UPDATE LOOP
-        // ============================================
-        function update() {
-            if (Math.random() < 0.015) {
-                launchRocket();
-            }
+  render(time);
+}
 
-            rockets = rockets.filter(r => r.update());
+// ═══════════════════════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════════════════════
 
-            particles.forEach(p => p.update());
-            particles = particles.filter(p => p.isAlive());
+let hudTimer;
+function showHUD() {
+  const ui = document.getElementById('ui');
+  if (settings.hud) ui.classList.remove('hidden');
+  clearTimeout(hudTimer);
+  hudTimer = setTimeout(() => ui.classList.add('hidden'), 8000);
+}
 
-            updateSmoke();
+function updateUI() {
+  document.getElementById('tTheme').textContent = themes[settings.theme].name;
+  document.getElementById('tInt').textContent = settings.intensity;
+  document.getElementById('tSnd').textContent = settings.sound ? 'ON' : 'OFF';
+  document.getElementById('tBurst').textContent = BURSTS.length + ' varieties';
+  document.getElementById('tMode').textContent = showModes[settings.showMode];
+  document.getElementById('tFX').textContent =
+    (settings.bloom?'Bloom ':'')+(settings.chromatic?'+ CA ':'')+'+ HDR'+(settings.reflections?' + Reflect':'');
+}
 
-            frameCount++;
-            if (Date.now() - lastFpsUpdate > 1000) {
-                currentFps = frameCount;
-                frameCount = 0;
-                lastFpsUpdate = Date.now();
+document.addEventListener('keydown', e => {
+  if (!audioCtx) initAudio();
+  showHUD();
 
-                if (showStats) {
-                    document.getElementById('fps').textContent = currentFps;
-                    document.getElementById('particleCount').textContent = particles.length;
-                    document.getElementById('rocketCount').textContent = rockets.length;
-                    document.getElementById('burstCount').textContent = Math.floor(particles.length / burstIntensity);
-                }
-            }
-        }
+  switch(e.key) {
+    case 'ArrowUp':
+      settings.theme = (settings.theme + 1) % themes.length;
+      updateUI(); break;
+    case 'ArrowDown':
+      settings.theme = (settings.theme - 1 + themes.length) % themes.length;
+      updateUI(); break;
+    case 'ArrowRight':
+      settings.intensity = Math.min(300, settings.intensity + 25);
+      updateUI(); break;
+    case 'ArrowLeft':
+      settings.intensity = Math.max(25, settings.intensity - 25);
+      updateUI(); break;
+    case 'm': case 'M':
+      settings.sound = !settings.sound;
+      updateUI(); break;
+    case 's': case 'S':
+      settings.stats = !settings.stats;
+      document.getElementById('stats').style.display = settings.stats ? 'block' : 'none';
+      break;
+    case 'h': case 'H':
+      settings.hud = !settings.hud;
+      document.getElementById('ui').classList.toggle('hidden', !settings.hud);
+      break;
+    case 'b': case 'B':
+      settings.bloom = !settings.bloom;
+      updateUI(); break;
+    case 'g': case 'G':
+      settings.godRays = !settings.godRays;
+      break;
+    case 'r': case 'R':
+      settings.reflections = !settings.reflections;
+      updateUI(); break;
+    case 'f': case 'F':
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+      break;
+    case '1': case '2': case '3': case '4': case '5':
+      settings.showMode = parseInt(e.key) - 1;
+      choreoBeat = 0;
+      updateUI(); break;
+    case ' ':
+      e.preventDefault();
+      // Grand finale burst
+      for (let i = 0; i < 20; i++) {
+        setTimeout(() => launchRocket(), i * 50);
+      }
+      break;
+  }
+});
 
-        // ============================================
-        // MAIN RENDER LOOP
-        // ============================================
-        function render() {
-            mainCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-            mainCtx.fillRect(0, 0, width, height);
+canvas.addEventListener('click', e => {
+  if (!audioCtx) initAudio();
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+  launchRocket(x);
+});
 
-            bloomCtx.clearRect(0, 0, width, height);
-            bloomCtx.globalCompositeOperation = 'lighter';
+canvas.addEventListener('touchstart', e => {
+  if (!audioCtx) initAudio();
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  for (const touch of e.changedTouches) {
+    const x = (touch.clientX - rect.left) / rect.width;
+    launchRocket(x);
+  }
+}, { passive: false });
 
-            drawSmoke(mainCtx);
+// ─── Auto-hide HUD ───
+hudTimer = setTimeout(() => document.getElementById('ui').classList.add('hidden'), 8000);
 
-            rockets.forEach(r => r.draw(mainCtx));
+// ─── Start ───
+updateUI();
+requestAnimationFrame(loop);
 
-            particles.forEach(p => {
-                p.draw(mainCtx, false);
-                p.draw(bloomCtx, true);
-            });
-        }
-
-        // ============================================
-        // ANIMATION LOOP
-        // ============================================
-        function animate() {
-            update();
-            render();
-            requestAnimationFrame(animate);
-        }
-
-        // ============================================
-        // UI CONTROLS
-        // ============================================
-        function updateOverlayText() {
-            document.getElementById('themeText').textContent = `Theme: ${themes[themeIndex].name}`;
-            document.getElementById('intensityText').textContent = `Intensity: ${burstIntensity} particles`;
-            document.getElementById('soundText').textContent = `Sound: ${soundEnabled ? 'ON' : 'OFF'}`;
-            document.getElementById('burstText').textContent = `Burst Types: All (${Object.keys(BURST_TYPES).length} varieties)`;
-        }
-
-        document.addEventListener('keydown', e => {
-            lastInputTime = Date.now();
-            showOverlay = true;
-            overlay.classList.remove('hidden');
-
-            if (!audioCtx) initAudio();
-
-            switch (e.key) {
-                case 'ArrowUp':
-                    themeIndex = (themeIndex + 1) % themes.length;
-                    updateOverlayText();
-                    break;
-                case 'ArrowDown':
-                    themeIndex = (themeIndex - 1 + themes.length) % themes.length;
-                    updateOverlayText();
-                    break;
-                case 'ArrowLeft':
-                    burstIntensity = Math.max(MIN_INTENSITY, burstIntensity - 20);
-                    updateOverlayText();
-                    break;
-                case 'ArrowRight':
-                    burstIntensity = Math.min(MAX_INTENSITY, burstIntensity + 20);
-                    updateOverlayText();
-                    break;
-                case 'm':
-                case 'M':
-                    soundEnabled = !soundEnabled;
-                    updateOverlayText();
-                    break;
-                case 's':
-                case 'S':
-                    showStats = !showStats;
-                    document.getElementById('stats').classList.toggle('hidden', !showStats);
-                    break;
-                case 'h':
-                case 'H':
-                    showOverlay = !showOverlay;
-                    overlay.classList.toggle('hidden', !showOverlay);
-                    break;
-                case 'f':
-                case 'F':
-                    if (!document.fullscreenElement) {
-                        document.documentElement.requestFullscreen();
-                    }
-                    break;
-                case 'Escape':
-                    if (document.fullscreenElement) {
-                        document.exitFullscreen();
-                    }
-                    break;
-            }
-        });
-
-        mainCanvas.addEventListener('click', e => {
-            if (!audioCtx) initAudio();
-            lastInputTime = Date.now();
-            showOverlay = true;
-            overlay.classList.remove('hidden');
-
-            launchRocket(e.clientX);
-        });
-
-        setInterval(() => {
-            if (showOverlay && Date.now() - lastInputTime > 12000) {
-                showOverlay = false;
-                overlay.classList.add('hidden');
-            }
-        }, 1000);
-
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-
-            starCanvas.width = mainCanvas.width = bloomCanvas.width = width;
-            starCanvas.height = mainCanvas.height = bloomCanvas.height = height;
-
-            createStarfield();
-        }
-        window.addEventListener('resize', resize);
-
-        // ============================================
-        // INITIALIZE
-        // ============================================
-        resize();
-        updateOverlayText();
-        drawStarfield();
-
-        setInterval(drawStarfield, 100);
-
-        animate();
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').catch(err => {
-                console.log('Service Worker registration failed:', err);
-            });
-        }
-    </script>
+</script>
 </body>
 </html>
