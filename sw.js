@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fireworks-v1';
+const CACHE_NAME = 'fireworks-v2';
 const urlsToCache = [
     './',
     './index.html',
